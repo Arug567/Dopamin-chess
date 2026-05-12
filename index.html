@@ -17,21 +17,24 @@
         
         .menu { background: #1a1a24; padding: 20px; border-radius: 12px; max-width: 400px; margin: 20px auto; border: 2px solid #ff0055; box-shadow: 0 0 20px rgba(255, 0, 85, 0.2); }
         input, select, button { width: 100%; box-sizing: border-box; background: #0f0f15; border: 2px solid #00f3ff; color: #fff; padding: 12px; margin: 8px 0; border-radius: 8px; font-weight: bold; font-size: 1.1rem; cursor: pointer; transition: 0.2s;}
-        button:hover { background: #00f3ff; color: #000; box-shadow: 0 0 15px #00f3ff; }
+        button:hover:not(:disabled) { background: #00f3ff; color: #000; box-shadow: 0 0 15px #00f3ff; }
+        button:disabled { border-color: #555; color: #555; cursor: not-allowed; }
         .btn-pink { border-color: #ff0055; color: #ff0055; }
-        .btn-pink:hover { background: #ff0055; color: #000; box-shadow: 0 0 15px #ff0055; }
+        .btn-pink:hover:not(:disabled) { background: #ff0055; color: #000; box-shadow: 0 0 15px #ff0055; }
         
         #game-ui { display: none; max-width: 400px; margin: 0 auto; }
         .timer-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; }
         .timer { font-size: 2rem; font-family: monospace; font-weight: bold; background: #111; padding: 5px 15px; border-radius: 8px; border: 2px solid #333; }
-        .timer.active { border-color: #ff0055; color: #ff0055; text-shadow: 0 0 10px #ff0055; }
+        .timer.active { border-color: #ff0055; color: #ff0055; text-shadow: 0 0 10px #ff0055; transform: scale(1.05); transition: 0.1s;}
         
-        #board-wrapper { border: 4px solid #00f3ff; box-shadow: 0 0 20px rgba(0,243,255,0.5); border-radius: 5px; transition: 0.2s; }
+        #board-wrapper { border: 4px solid #00f3ff; box-shadow: 0 0 20px rgba(0,243,255,0.5); border-radius: 5px; transition: 0.2s; position: relative; background: #222;}
         
         .gadgets { display: flex; gap: 8px; margin-top: 10px; }
         .gadget-btn { flex: 1; border-color: #00ff00; color: #00ff00; font-size: 0.8rem; padding: 12px 5px; text-transform: uppercase; }
-        .gadget-btn:hover { background: #00ff00; color: #000; box-shadow: 0 0 15px #00ff00; }
+        .gadget-btn:hover:not(:disabled) { background: #00ff00; color: #000; box-shadow: 0 0 15px #00ff00; }
         .gadget-btn:disabled { opacity: 0.3; pointer-events: none; border-color: #555; color: #555; }
+
+        #status-msg { margin-top: 15px; font-weight: bold; color: #ffaa00; font-size: 1rem; min-height: 24px;}
 
         /* DOPAMIN SCREEN SHAKE */
         @keyframes shake {
@@ -53,14 +56,15 @@
 
     <div id="menu" class="menu">
         <div id="menu-main">
-            <button class="btn-pink" onclick="initHost()">👑 Spiel Erstellen (Host)</button>
+            <button id="btn-host" class="btn-pink" onclick="initHost()">👑 Spiel Erstellen (Host)</button>
             <hr style="border: 1px solid #333; margin: 25px 0;">
-            <input type="text" id="join-code" placeholder="RAUM-CODE (z.B. A1B2)" style="text-align:center; text-transform:uppercase; letter-spacing: 3px; font-size: 1.3rem;">
-            <button onclick="joinGame()">⚔️ Spiel Beitreten</button>
+            <input type="text" id="join-code" placeholder="CODE EINGEBEN" autocomplete="off" maxlength="4" style="text-align:center; text-transform:uppercase; letter-spacing: 5px; font-size: 1.5rem;">
+            <button id="btn-join" onclick="joinGame()">⚔️ Spiel Beitreten</button>
+            <div id="status-msg"></div>
         </div>
 
         <div id="menu-host" style="display:none;">
-            <h3 style="color:#ff0055;">Dein Raum-Code: <br><span id="host-code" style="font-size:3rem; letter-spacing: 5px; color:#fff; text-shadow: 0 0 15px #fff;">LÄDT...</span></h3>
+            <h3 style="color:#ff0055;">Dein Raum-Code: <br><span id="host-code" style="font-size:3.5rem; letter-spacing: 5px; color:#fff; text-shadow: 0 0 15px #fff;">...</span></h3>
             <p>Gib diesen Code deinem Gegner!</p>
             
             <select id="time-select">
@@ -77,7 +81,7 @@
                 <option value="kamikaze">Modus: Antichess (Schlagzwang)</option>
             </select>
             
-            <p style="color:#00f3ff; margin-top:20px; font-weight:bold;">Warte auf Gegner...</p>
+            <p id="host-status" style="color:#00f3ff; margin-top:20px; font-weight:bold;">Warte auf Gegner...</p>
         </div>
     </div>
 
@@ -87,7 +91,7 @@
             <span style="color:#888; font-weight:bold;">GEGNER</span>
         </div>
         
-        <div id="board-wrapper"><div id="board"></div></div>
+        <div id="board-wrapper"><div id="board" style="width: 100%;"></div></div>
         
         <div class="timer-row">
             <div id="my-timer" class="timer">00:00</div>
@@ -102,14 +106,28 @@
     </div>
 
 <script>
+    // --- STUN SERVER CONFIG FÜR ZUVERLÄSSIGE VERBINDUNG ---
+    const peerConfig = {
+        config: {
+            'iceServers': [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        }
+    };
+
     let peer, conn;
     let game = new Chess(), board = null;
-    let myColor = 'w', isMyTurn = false;
+    let myColor = 'w', isMyTurn = false, isFrozen = false, isGameOver = false;
     let myTime = 60, oppTime = 60, increment = 0;
     let timerInterval, lastTime;
     let gameMode = 'classic';
     let gadgetsUsed = { time: false, nuke: false, freeze: false };
     let audioCtx;
+
+    function setStatus(msg, color = '#ffaa00') {
+        $('#status-msg').text(msg).css('color', color);
+    }
 
     // --- AUDIO SYNTHESIZER ---
     function initAudio() {
@@ -118,7 +136,7 @@
     }
 
     function playSound(type) {
-        initAudio();
+        if (!audioCtx) return;
         const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
         osc.connect(gain); gain.connect(audioCtx.destination);
         if (type === 'move') {
@@ -139,90 +157,169 @@
         }
     }
 
-    // --- MULTIPLAYER P2P (PeerJS) ---
+    // Erzeugt Codes (Kein 0/O, 1/I, um Tippfehler auf Handys zu vermeiden)
+    function generateCode() {
+        const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; 
+        let result = "";
+        for (let i = 0; i < 4; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
+        return result;
+    }
+
+    // --- MULTIPLAYER P2P (PeerJS) MIT HANDSHAKE ---
     function initHost() {
         initAudio();
-        let id = Math.random().toString(36).substring(2, 6).toUpperCase();
-        peer = new Peer('HYPER-' + id);
+        $('#btn-host, #btn-join').prop('disabled', true);
+        setStatus("Erstelle Serverraum...");
+        
+        let id = generateCode();
+        // Prefix "HYPER-" verhindert, dass wir aus Versehen mit fremden PeerJS-Usern kollidieren
+        peer = new Peer('HYPER-' + id, peerConfig);
+        
         peer.on('open', () => {
-            $('#host-code').text(id); $('#menu-main').hide(); $('#menu-host').show();
+            $('#host-code').text(id); 
+            $('#menu-main').hide(); 
+            $('#menu-host').show();
         });
+
         peer.on('connection', (c) => {
-            conn = c; setupConnection();
-            gameMode = $('#mode-select').val();
-            let tc = $('#time-select').val().split('+');
-            myTime = oppTime = parseInt(tc[0]); increment = parseInt(tc[1]);
-            myColor = Math.random() > 0.5 ? 'w' : 'b';
-            
-            conn.on('open', () => {
-                conn.send({ type: 'start', mode: gameMode, time: myTime, inc: increment, color: myColor === 'w' ? 'b' : 'w' });
-                startGame();
-            });
+            conn = c; 
+            $('#host-status').text("Gegner verbindet sich...").css('color', '#00ff00');
+            setupConnectionHandlers();
+        });
+
+        peer.on('error', (err) => {
+            setStatus("Netzwerk-Fehler! Lade die Seite neu.", "#ff0055");
+            $('#btn-host, #btn-join').prop('disabled', false);
         });
     }
 
     function joinGame() {
         initAudio();
-        let id = $('#join-code').val().toUpperCase();
-        if(!id) return alert("Code eingeben!");
-        peer = new Peer();
+        let id = $('#join-code').val().trim().toUpperCase();
+        if(id.length !== 4) return setStatus("Code muss genau 4 Zeichen lang sein!", "#ff0055");
+        
+        $('#btn-host, #btn-join').prop('disabled', true);
+        setStatus("Suche Raum " + id + "...");
+        
+        peer = new Peer(peerConfig);
+        
         peer.on('open', () => {
-            conn = peer.connect('HYPER-' + id);
-            conn.on('open', setupConnection);
+            conn = peer.connect('HYPER-' + id, { reliable: true });
+            
+            conn.on('open', () => {
+                setStatus("Verbunden! Synchronisiere...", "#00ff00");
+                setupConnectionHandlers();
+                // HANDSHAKE 1: Wir sagen dem Host, dass unsere Verbindung steht und wir empfangsbereit sind!
+                conn.send({ type: 'client_ready' }); 
+            });
+
+            conn.on('error', () => {
+                setStatus("Verbindungsabbruch zum Host!", "#ff0055");
+                $('#btn-host, #btn-join').prop('disabled', false);
+            });
+        });
+
+        peer.on('error', (err) => {
+            setStatus("Fehler: Raum nicht gefunden oder Code falsch!", "#ff0055");
+            $('#btn-host, #btn-join').prop('disabled', false);
         });
     }
 
-    function setupConnection() {
+    function setupConnectionHandlers() {
         conn.on('data', (data) => {
-            if (data.type === 'start') {
+            
+            // HANDSHAKE 2: Host empfängt Ready vom Joiner -> Spiel kann jetzt gefahrlos und synchronisiert starten
+            if (data.type === 'client_ready') {
+                gameMode = $('#mode-select').val();
+                let tc = $('#time-select').val().split('+');
+                myTime = oppTime = parseInt(tc[0]); 
+                increment = parseInt(tc[1]);
+                myColor = Math.random() > 0.5 ? 'w' : 'b';
+                
+                // Host sendet Settings an den Joiner
+                conn.send({ type: 'start', mode: gameMode, time: myTime, inc: increment, color: myColor === 'w' ? 'b' : 'w' });
+                startGame();
+            } 
+            
+            // HANDSHAKE 3: Joiner empfängt Startdaten vom Host
+            else if (data.type === 'start') {
                 gameMode = data.mode; myTime = oppTime = data.time; increment = data.inc; myColor = data.color;
                 startGame();
-            } else if (data.type === 'move') {
-                game.move(data.move); if(data.fen) game.load(data.fen);
+            } 
+            
+            // IM SPIEL: Schachzüge empfangen
+            else if (data.type === 'move') {
+                game.move(data.move); 
+                if(data.fen) game.load(data.fen);
                 board.position(game.fen());
-                myTime = data.oppTime; oppTime = data.myTime; // Uhren synchronisieren
+                
+                myTime = data.oppTime; oppTime = data.myTime; // Uhren exakt synchronisieren
                 isMyTurn = true;
                 
                 if(data.captured) triggerDopamine(); else playSound('move');
-                checkGameOver(); updateTimers();
-            } else if (data.type === 'gadget') {
+                
+                if(data.kingDead) gameOver("💥 KÖNIG EXPLODIERT! GAME OVER!");
+                else checkGameOver(); 
+                
+                updateTimers();
+            } 
+            
+            // IM SPIEL: Gadgets empfangen
+            else if (data.type === 'gadget') {
                 playSound('gadget');
                 if (data.gadget === 'time') {
                     myTime -= 10; oppTime += 10; showFloatingText("-10s!", "#ff0055");
                 } else if (data.gadget === 'nuke') {
                     game.load(data.fen); board.position(game.fen());
-                    triggerDopamine(); showFloatingText("NUKE!", "#ffaa00"); checkGameOver();
+                    triggerDopamine(); showFloatingText("NUKE!", "#ffaa00"); 
+                    if(data.kingDead) gameOver("💥 KÖNIG ATOMISIERT! GAME OVER!");
+                    else checkGameOver();
                 } else if (data.gadget === 'freeze') {
                     showFloatingText("FROZEN!", "#00f3ff");
+                    isFrozen = true;
                     $('#board-wrapper').css('pointer-events', 'none').css('filter', 'hue-rotate(180deg) grayscale(80%)');
-                    setTimeout(() => { $('#board-wrapper').css('pointer-events', 'auto').css('filter', 'none'); }, 3000);
+                    setTimeout(() => { 
+                        isFrozen = false;
+                        $('#board-wrapper').css('pointer-events', 'auto').css('filter', 'none'); 
+                    }, 3000);
                 }
                 updateTimers();
+            }
+        });
+
+        conn.on('close', () => {
+            if(!isGameOver) {
+                alert("Verbindung getrennt. Der Gegner hat das Spiel verlassen!");
+                location.reload();
             }
         });
     }
 
     // --- SPIEL LOGIK ---
     function startGame() {
-        $('#menu').hide(); $('#game-ui').show();
+        $('#menu').hide(); $('#game-ui').fadeIn();
         isMyTurn = (myColor === 'w');
         
         board = Chessboard('board', {
             draggable: true, position: 'start', orientation: myColor === 'w' ? 'white' : 'black',
             onDragStart: (source, piece) => {
-                if (game.game_over() || !isMyTurn) return false;
+                if (game.game_over() || isGameOver || !isMyTurn || isFrozen) return false;
                 if (piece.search(new RegExp(`^${myColor}`)) === -1) return false;
             },
             onDrop: handleDrop
         });
         
-        $(window).resize(() => { if(board) board.resize(); }); // Responsive für Handy
+        // Timeout für UI-Bugfixes auf sehr kleinen Handydisplays
+        setTimeout(() => { if(board) board.resize(); }, 200);
+        $(window).resize(() => { if(board) board.resize(); });
+        
         lastTime = Date.now(); timerInterval = setInterval(gameLoop, 100);
         updateTimers(); playSound('gadget');
+        showFloatingText("FIGHT!", "#00f3ff");
     }
 
     function gameLoop() {
-        if (game.game_over()) return;
+        if (game.game_over() || isGameOver) return;
         let now = Date.now(); let dt = (now - lastTime) / 1000; lastTime = now;
         
         if (isMyTurn) {
@@ -234,13 +331,12 @@
     }
 
     function updateTimers() {
-        const fmt = t => { let m = Math.floor(t / 60); let s = Math.floor(t % 60); return `${m}:${s < 10 ? '0' : ''}${s}`; };
+        const fmt = t => { let m = Math.floor(Math.max(t, 0) / 60); let s = Math.floor(Math.max(t, 0) % 60); return `${m}:${s < 10 ? '0' : ''}${s}`; };
         $('#my-timer').text(fmt(myTime)).toggleClass('active', isMyTurn);
         $('#opp-timer').text(fmt(oppTime)).toggleClass('active', !isMyTurn);
     }
 
     function handleDrop(source, target) {
-        // Antichess Schlagzwang Regel
         if (gameMode === 'kamikaze') {
             let captures = game.moves({verbose:true}).filter(m => m.captured);
             if (captures.length > 0 && !captures.find(m => m.from === source && m.to === target)) {
@@ -253,8 +349,8 @@
         if (move === null) return 'snapback';
 
         let captured = move.captured ? true : false;
+        let kingDead = false;
         
-        // Atomic Schach Regel
         if (gameMode === 'atomic' && captured) {
             let fIdx = "abcdefgh".indexOf(target[0]), rIdx = parseInt(target[1]);
             let sqs = [target];
@@ -264,27 +360,28 @@
                     let f = fIdx + df, r = rIdx + dr;
                     if(f >= 0 && f <= 7 && r >= 1 && r <= 8) {
                         let sq = "abcdefgh"[f] + r; let p = game.get(sq);
-                        if(p && p.type !== 'p') sqs.push(sq); // Bauern überleben
+                        if(p && p.type !== 'p') sqs.push(sq);
                     }
                 }
             }
             sqs.forEach(sq => game.remove(sq));
-            if (!game.fen().includes('K') || !game.fen().includes('k')) {
-                setTimeout(() => gameOver("💥 KÖNIG EXPLODIERT! GAME OVER!"), 500);
-            }
+            if (!game.fen().includes('K') || !game.fen().includes('k')) kingDead = true;
         }
 
         myTime += increment; isMyTurn = false;
-        conn.send({ type: 'move', move: move, fen: game.fen(), myTime: myTime, oppTime: oppTime, captured: captured });
+        conn.send({ type: 'move', move: move, fen: game.fen(), myTime: myTime, oppTime: oppTime, captured: captured, kingDead: kingDead });
         board.position(game.fen());
         
         if (captured) triggerDopamine(); else playSound('move');
-        checkGameOver(); updateTimers();
+        
+        if(kingDead) gameOver("💥 KÖNIG EXPLODIERT! GAME OVER!");
+        else checkGameOver(); 
+        
+        updateTimers();
     }
 
-    // --- GADGETS & DOPAMIN EFFEKTE ---
     function useGadget(type) {
-        if (gadgetsUsed[type] || !isMyTurn || game.game_over()) return;
+        if (gadgetsUsed[type] || !isMyTurn || game.game_over() || isGameOver || isFrozen) return;
         gadgetsUsed[type] = true; $(`#btn-${type}`).prop('disabled', true);
         playSound('gadget');
         
@@ -303,12 +400,16 @@
             if (targets.length > 0) {
                 game.remove(targets[Math.floor(Math.random() * targets.length)]);
                 board.position(game.fen());
-                conn.send({ type: 'gadget', gadget: 'nuke', fen: game.fen() });
-                triggerDopamine(); showFloatingText("NUKE!", "#ffaa00"); checkGameOver();
+                let kingDead = (!game.fen().includes('K') || !game.fen().includes('k'));
+                conn.send({ type: 'gadget', gadget: 'nuke', fen: game.fen(), kingDead: kingDead });
+                triggerDopamine(); showFloatingText("NUKE!", "#ffaa00"); 
+                
+                if(kingDead) gameOver("💥 KÖNIG ATOMISIERT! GAME OVER!");
+                else checkGameOver();
             }
         } else if (type === 'freeze') {
             conn.send({ type: 'gadget', gadget: 'freeze' });
-            showFloatingText("FREEZE!", "#00f3ff");
+            showFloatingText("FREEZE gesendet!", "#00f3ff");
         }
         updateTimers();
     }
@@ -316,9 +417,9 @@
     function triggerDopamine() {
         playSound('capture');
         $('#board-wrapper').removeClass('shake');
-        void document.getElementById('board-wrapper').offsetWidth; // Reflow erzwingen
+        void document.getElementById('board-wrapper').offsetWidth;
         $('#board-wrapper').addClass('shake');
-        confetti({ particleCount: 200, spread: 360, startVelocity: 40, colors: ['#ff0055', '#00f3ff', '#ffaa00', '#ffffff'] });
+        confetti({ particleCount: 200, spread: 360, startVelocity: 40, colors: ['#ff0055', '#00f3ff', '#ffaa00', '#ffffff'], zIndex: 1000 });
     }
 
     function showFloatingText(text, color) {
@@ -334,8 +435,10 @@
     }
 
     function gameOver(msg) {
+        if(isGameOver) return;
+        isGameOver = true;
         clearInterval(timerInterval);
-        setTimeout(() => { alert(msg); location.reload(); }, 300);
+        setTimeout(() => { alert(msg); location.reload(); }, 500);
     }
 </script>
 </body>
