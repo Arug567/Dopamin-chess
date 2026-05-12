@@ -3,49 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>HYPER CHESS ⚡</title>
+    <title>HYPER CHESS ⚡ 3.0</title>
+    
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
     <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
     <style>
-        body { background: #0a0a0f; color: #fff; font-family: 'Segoe UI', sans-serif; text-align: center; margin: 0; padding: 10px; touch-action: manipulation; overflow-x: hidden;}
-        h1 { color: #00f3ff; text-shadow: 0 0 15px #00f3ff; margin-top: 10px; font-size: 2.2rem; text-transform: uppercase;}
+        body { background: #0a0a0f; color: #fff; font-family: 'Segoe UI', sans-serif; text-align: center; margin: 0; padding: 10px; touch-action: manipulation; overflow-x: hidden; user-select: none;}
+        h1 { color: #00f3ff; text-shadow: 0 0 15px #00f3ff; margin-top: 5px; font-size: 2.2rem; text-transform: uppercase;}
         
-        .menu { background: #1a1a24; padding: 20px; border-radius: 12px; max-width: 400px; margin: 20px auto; border: 2px solid #ff0055; box-shadow: 0 0 20px rgba(255, 0, 85, 0.2); }
-        input, select, button { width: 100%; box-sizing: border-box; background: #0f0f15; border: 2px solid #00f3ff; color: #fff; padding: 12px; margin: 8px 0; border-radius: 8px; font-weight: bold; font-size: 1.1rem; cursor: pointer; transition: 0.2s;}
+        .screen { display: none; max-width: 450px; margin: 15px auto; }
+        .active-screen { display: block; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .panel { background: #1a1a24; padding: 20px; border-radius: 12px; border: 2px solid #ff0055; box-shadow: 0 0 20px rgba(255, 0, 85, 0.2); margin-bottom: 20px;}
+        input, select, button { width: 100%; box-sizing: border-box; background: #0f0f15; border: 2px solid #00f3ff; color: #fff; padding: 12px; margin: 8px 0; border-radius: 8px; font-weight: bold; font-size: 1rem; cursor: pointer; transition: 0.2s;}
         button:hover:not(:disabled) { background: #00f3ff; color: #000; box-shadow: 0 0 15px #00f3ff; }
-        button:disabled { border-color: #555; color: #555; cursor: not-allowed; }
+        button:disabled { opacity: 0.5; border-color: #555; cursor: not-allowed; }
+        
         .btn-pink { border-color: #ff0055; color: #ff0055; }
         .btn-pink:hover:not(:disabled) { background: #ff0055; color: #000; box-shadow: 0 0 15px #ff0055; }
-        
-        #game-ui { display: none; max-width: 400px; margin: 0 auto; }
-        .timer-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; }
-        .timer { font-size: 2rem; font-family: monospace; font-weight: bold; background: #111; padding: 5px 15px; border-radius: 8px; border: 2px solid #333; }
-        .timer.active { border-color: #ff0055; color: #ff0055; text-shadow: 0 0 10px #ff0055; transform: scale(1.05); transition: 0.1s;}
-        
-        #board-wrapper { border: 4px solid #00f3ff; box-shadow: 0 0 20px rgba(0,243,255,0.5); border-radius: 5px; transition: 0.2s; position: relative; background: #222;}
-        
-        .gadgets { display: flex; gap: 8px; margin-top: 10px; }
-        .gadget-btn { flex: 1; border-color: #00ff00; color: #00ff00; font-size: 0.8rem; padding: 12px 5px; text-transform: uppercase; }
-        .gadget-btn:hover:not(:disabled) { background: #00ff00; color: #000; box-shadow: 0 0 15px #00ff00; }
-        .gadget-btn:disabled { opacity: 0.3; pointer-events: none; border-color: #555; color: #555; }
+        .btn-gold { border-color: #ffaa00; color: #ffaa00; }
+        .btn-gold:hover:not(:disabled) { background: #ffaa00; color: #000; box-shadow: 0 0 15px #ffaa00; }
+        .btn-sm { padding: 6px; font-size: 0.8rem; width: auto; margin:0;}
 
-        #status-msg { margin-top: 15px; font-weight: bold; color: #ffaa00; font-size: 1rem; min-height: 24px;}
+        /* Profile & Shop */
+        .profile-bar { display: flex; justify-content: space-between; background: #000; padding: 12px 15px; border-radius: 8px; border: 1px solid #333; margin-bottom: 15px; font-size: 1.1rem; }
+        .stat-elo { color: #00f3ff; font-weight: bold; }
+        .stat-coins { color: #ffaa00; font-weight: bold; }
+        
+        .shop-item { background: #111; padding: 10px; margin-bottom: 10px; border-radius: 8px; text-align: left; transition: 0.2s; border: 2px solid transparent;}
+        .shop-item.equipped { border-color: #00ff00; background: rgba(0,255,0,0.05); }
+        .shop-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
 
-        /* DOPAMIN SCREEN SHAKE */
-        @keyframes shake {
-            0%, 100% { transform: translate(0, 0) rotate(0deg); }
-            20% { transform: translate(-4px, 4px) rotate(-1deg); }
-            40% { transform: translate(4px, -4px) rotate(1deg); }
-            60% { transform: translate(-4px, -4px) rotate(0deg); }
-            80% { transform: translate(4px, 4px) rotate(-1deg); }
-        }
+        /* Lobbies */
+        .lobby-item { background: #222; padding: 12px; margin-bottom: 8px; border-radius: 6px; border-left: 4px solid #00f3ff; display: flex; justify-content: space-between; align-items: center; text-align: left; cursor: pointer;}
+        .lobby-item:hover { background: #333; }
+
+        /* Game UI */
+        .player-info { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: #111; border-radius: 5px; margin: 5px 0; border: 1px solid #333;}
+        .timer { font-size: 1.8rem; font-family: monospace; font-weight: bold; background: #000; padding: 2px 10px; border-radius: 5px; border: 1px solid #444;}
+        .timer.active { border-color: #ff0055; color: #ff0055; text-shadow: 0 0 10px #ff0055; transform: scale(1.05); }
+        
+        #board-wrapper { border: 4px solid #00f3ff; box-shadow: 0 0 20px rgba(0,243,255,0.4); border-radius: 5px; position: relative; background: #222; }
+        .blindfold .piece-417db { opacity: 0; transition: 0.2s; }
+        .blindfold .piece-417db:active { opacity: 0.5; } /* Kurzes Aufblitzen beim Anfassen */
+
+        .gadget-btn { flex: 1; padding: 12px 5px; font-size: 0.8rem; text-transform: uppercase; border-radius: 5px; background: #111; }
+        
+        /* Effects */
+        @keyframes shake { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(-4px, 4px); } 50% { transform: translate(4px, -4px); } 75% { transform: translate(-4px, -4px); } }
         .shake { animation: shake 0.35s cubic-bezier(.36,.07,.19,.97) both; }
-
         .floating-text { position: absolute; font-size: 2.5rem; font-weight: 900; text-shadow: 0 0 15px currentColor; pointer-events: none; animation: floatUp 1s forwards; z-index: 1000; }
         @keyframes floatUp { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-80px) scale(1.5); } }
     </style>
@@ -54,18 +68,50 @@
 
     <h1>⚡ HYPER CHESS ⚡</h1>
 
-    <div id="menu" class="menu">
-        <div id="menu-main">
-            <button id="btn-host" class="btn-pink" onclick="initHost()">👑 Spiel Erstellen (Host)</button>
-            <hr style="border: 1px solid #333; margin: 25px 0;">
-            <input type="text" id="join-code" placeholder="CODE EINGEBEN" autocomplete="off" maxlength="4" style="text-align:center; text-transform:uppercase; letter-spacing: 5px; font-size: 1.5rem;">
-            <button id="btn-join" onclick="joinGame()">⚔️ Spiel Beitreten</button>
-            <div id="status-msg"></div>
+    <div id="screen-auth" class="screen active-screen">
+        <div class="panel">
+            <h2 style="color:#00f3ff; margin-top:0;">SPIELER AKTE</h2>
+            <p style="font-size:0.85rem; color:#aaa;">Dein Account wird lokal auf deinem Browser gespeichert. Neue Namen erstellen automatisch ein Profil!</p>
+            <input type="text" id="auth-user" placeholder="Eindeutiger Nickname" maxlength="12" autocomplete="off">
+            <input type="password" id="auth-pass" placeholder="Passwort (Für späteren Login)">
+            <button onclick="login()" class="btn-pink">LOGIN / REGISTRIEREN</button>
+        </div>
+    </div>
+
+    <div id="screen-menu" class="screen">
+        <div class="profile-bar">
+            <span id="ui-username" style="font-weight:bold;">Player</span>
+            <span><span class="stat-elo">🏆 <span id="ui-elo">1000</span></span> &nbsp;|&nbsp; <span class="stat-coins">🪙 <span id="ui-coins">0</span></span></span>
         </div>
 
-        <div id="menu-host" style="display:none;">
-            <h3 style="color:#ff0055;">Dein Raum-Code: <br><span id="host-code" style="font-size:3.5rem; letter-spacing: 5px; color:#fff; text-shadow: 0 0 15px #fff;">...</span></h3>
-            <p>Gib diesen Code deinem Gegner!</p>
+        <div class="panel">
+            <button class="btn-pink" onclick="switchScreen('screen-host')">👑 Spiel Erstellen (Host)</button>
+            <hr style="border: 1px solid #333; margin: 15px 0;">
+            <input type="text" id="join-code" placeholder="4-STELLIGER CODE" maxlength="4" style="text-align:center; text-transform:uppercase; letter-spacing: 5px; font-size: 1.2rem;">
+            <button onclick="joinGame()">🔑 Code Beitreten</button>
+        </div>
+
+        <div class="panel">
+            <h3 style="margin-top:0; color:#00ff00;">🌍 ÖFFENTLICHE RÄUME</h3>
+            <div id="lobby-list" style="max-height: 200px; overflow-y: auto;">
+                <p style="color:#666;">Suche nach Spielern weltweit...</p>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3 style="margin-top:0; color:#ffaa00;">🛒 GADGET SHOP & LOADOUT</h3>
+            <p style="font-size:0.85rem; color:#aaa;">Wähle <b>exakt 3 Gadgets</b> aus, die du ins nächste Spiel mitnimmst.</p>
+            <div id="shop-list"></div>
+        </div>
+    </div>
+
+    <div id="screen-host" class="screen">
+        <div class="panel">
+            <h3 style="color:#ff0055;">Dein Raum-Code: <br><span id="host-code" style="font-size:3.5rem; color:#fff; letter-spacing: 5px;">LÄDT</span></h3>
+            
+            <label style="display:flex; align-items:center; justify-content:center; gap:10px; cursor:pointer; font-weight:bold; color:#00ff00; margin:15px 0;">
+                <input type="checkbox" id="public-toggle" style="width:20px; height:20px;" checked> Öffentlich sichtbar machen!
+            </label>
             
             <select id="time-select">
                 <option value="60+0">1 Min Bullet</option>
@@ -74,259 +120,281 @@
                 <option value="300+0">5 Min Blitz</option>
                 <option value="30+2">30s + 2s Fischer</option>
             </select>
-            
             <select id="mode-select">
-                <option value="classic">Modus: Classic Dopamin</option>
-                <option value="atomic">Modus: Atomic (3x3 Explosion)</option>
-                <option value="kamikaze">Modus: Antichess (Schlagzwang)</option>
+                <option value="classic">🛡️ Modus: Classic Dopamin</option>
+                <option value="atomic">💥 Modus: Atomic (3x3 Explosion)</option>
+                <option value="kamikaze">🧲 Modus: Antichess (Schlagzwang)</option>
+                <option value="koth">⛰️ Modus: King of the Hill (Mitte=Sieg)</option>
+                <option value="3check">🎯 Modus: 3-Check</option>
+                <option value="firstblood">🩸 Modus: First Blood (1. Kill siegt)</option>
             </select>
             
             <p id="host-status" style="color:#00f3ff; margin-top:20px; font-weight:bold;">Warte auf Gegner...</p>
+            <button onclick="cancelHost()" style="background:transparent; border-color:#555; color:#aaa;">Abbrechen</button>
         </div>
     </div>
 
-    <div id="game-ui">
-        <div class="timer-row">
+    <div id="screen-game" class="screen" style="max-width: 450px;">
+        <div class="player-info">
+            <div><span id="opp-name" style="color:#00f3ff; font-weight:bold; font-size:1.1rem;">Gegner</span> <br><span id="opp-elo" style="font-size:0.8rem; color:#aaa;">(1000 Elo)</span></div>
             <div id="opp-timer" class="timer">00:00</div>
-            <span style="color:#888; font-weight:bold;">GEGNER</span>
         </div>
         
         <div id="board-wrapper"><div id="board" style="width: 100%;"></div></div>
         
-        <div class="timer-row">
+        <div class="player-info">
+            <div><span id="my-name" style="color:#ff0055; font-weight:bold; font-size:1.1rem;">Du</span> <br><span id="my-elo" style="font-size:0.8rem; color:#aaa;">(1000 Elo)</span></div>
             <div id="my-timer" class="timer">00:00</div>
-            <span style="color:#888; font-weight:bold;">DU</span>
         </div>
+        <div id="check-counter" style="display:none; color:#ffaa00; font-weight:bold; margin-top:5px; background:#111; padding:5px; border-radius:5px;">Checks (Du - Gegner): <span id="my-checks">0</span> - <span id="opp-checks">0</span></div>
 
-        <div class="gadgets">
-            <button id="btn-time" class="gadget-btn" onclick="useGadget('time')">⏳ Zeitdieb</button>
-            <button id="btn-freeze" class="gadget-btn" onclick="useGadget('freeze')" style="border-color:#00f3ff; color:#00f3ff;">🧊 Freeze</button>
-            <button id="btn-nuke" class="gadget-btn" onclick="useGadget('nuke')" style="border-color:#ff0055; color:#ff0055;">💣 Nuke</button>
-        </div>
+        <div id="gadgets-container" style="display: flex; gap: 5px; margin-top: 10px;"></div>
     </div>
 
 <script>
-    // --- STUN SERVER CONFIG FÜR ZUVERLÄSSIGE VERBINDUNG ---
-    const peerConfig = {
-        config: {
-            'iceServers': [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
-            ]
-        }
+    /* --- 1. DATENBANK & GADGET CONFIG --- */
+    let db = JSON.parse(localStorage.getItem('hc_db_v3')) || { users: {} };
+    let currentUser = null;
+
+    const GADGETS = {
+        time: { icon: '⏳', name: 'Zeitdieb', desc: 'Klaut dem Gegner Zeit.', levels: [{val: 5, cost: 0}, {val: 10, cost: 150}, {val: 15, cost: 300}], color: '#00ff00' },
+        freeze: { icon: '🧊', name: 'Freeze', desc: 'Friert Gegner-Brett ein.', levels: [{val: 3, cost: 0}, {val: 4, cost: 150}, {val: 5, cost: 300}], color: '#00f3ff' },
+        nuke: { icon: '💣', name: 'Nuke', desc: 'Zerstört zufällige Gegner-Figur(en).', levels: [{val: 1, cost: 0}, {val: 2, cost: 200}, {val: 3, cost: 400}], color: '#ff0055' },
+        blind: { icon: '🌫️', name: 'Blindfold', desc: 'Macht Gegner-Brett unsichtbar.', levels: [{val: 3, cost: 100}, {val: 4, cost: 200}, {val: 5, cost: 350}], color: '#aaaaaa' },
+        promote: { icon: '👑', name: 'Promote', desc: 'Verwandelt eigenen Bauern in Dame.', levels: [{val: 1, cost: 200}, {val: 2, cost: 400}, {val: 3, cost: 600}], color: '#ff00ff' },
+        airdrop: { icon: '🪂', name: 'Airdrop', desc: 'Spawnt extra Figur auf dem Feld.', levels: [{val: 'p', cost: 100}, {val: 'n', cost: 250}, {val: 'r', cost: 500}], color: '#ffff00' }
     };
 
-    let peer, conn;
-    let game = new Chess(), board = null;
-    let myColor = 'w', isMyTurn = false, isFrozen = false, isGameOver = false;
-    let myTime = 60, oppTime = 60, increment = 0;
-    let timerInterval, lastTime;
-    let gameMode = 'classic';
-    let gadgetsUsed = { time: false, nuke: false, freeze: false };
-    let audioCtx;
+    function saveDB() { localStorage.setItem('hc_db_v3', JSON.stringify(db)); localStorage.setItem('hc_last_user_v3', currentUser.name); }
 
-    function setStatus(msg, color = '#ffaa00') {
-        $('#status-msg').text(msg).css('color', color);
-    }
-
-    // --- AUDIO SYNTHESIZER ---
-    function initAudio() {
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-    }
-
-    function playSound(type) {
-        if (!audioCtx) return;
-        const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
-        osc.connect(gain); gain.connect(audioCtx.destination);
-        if (type === 'move') {
-            osc.type = 'sine'; osc.frequency.setValueAtTime(500, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1);
-            gain.gain.setValueAtTime(0.3, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-            osc.start(); osc.stop(audioCtx.currentTime + 0.1);
-        } else if (type === 'capture') {
-            osc.type = 'square'; osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.3);
-            gain.gain.setValueAtTime(0.6, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-            osc.start(); osc.stop(audioCtx.currentTime + 0.3);
-        } else if (type === 'gadget') {
-            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(300, audioCtx.currentTime);
-            osc.frequency.linearRampToValueAtTime(900, audioCtx.currentTime + 0.3);
-            gain.gain.setValueAtTime(0.4, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-            osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+    function login() {
+        let u = $('#auth-user').val().trim(), p = $('#auth-pass').val();
+        if(u.length < 3 || p.length < 3) return Swal.fire('Halt!', 'Name & Passwort müssen mind. 3 Zeichen lang sein!', 'error');
+        
+        if(db.users[u]) {
+            if(db.users[u].pass !== p) return Swal.fire('Fehler', 'Falsches Passwort für diesen Nicknamen!', 'error');
+            currentUser = db.users[u];
+        } else {
+            // Neuer Spieler
+            currentUser = { name: u, pass: p, elo: 1000, coins: 50, upgrades: { time: 0, freeze: 0, nuke: 0, blind: -1, promote: -1, airdrop: -1 }, loadout: ['time', 'freeze', 'nuke'] };
+            db.users[u] = currentUser;
         }
+        saveDB(); switchScreen('screen-menu'); updateMenu(); initMQTT();
     }
 
-    // Erzeugt Codes (Kein 0/O, 1/I, um Tippfehler auf Handys zu vermeiden)
-    function generateCode() {
-        const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; 
-        let result = "";
-        for (let i = 0; i < 4; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
-        return result;
+    $(document).ready(() => {
+        let lastU = localStorage.getItem('hc_last_user_v3');
+        if(lastU && db.users[lastU]) { $('#auth-user').val(lastU); $('#auth-pass').val(db.users[lastU].pass); }
+    });
+
+    function switchScreen(id) { $('.screen').removeClass('active-screen'); $(`#${id}`).addClass('active-screen'); }
+
+    /* --- 2. SHOP & MENÜ --- */
+    function updateMenu() {
+        $('#ui-username').text(currentUser.name); $('#ui-elo').text(currentUser.elo); $('#ui-coins').text(currentUser.coins);
+        $('#shop-list').empty();
+        
+        Object.keys(GADGETS).forEach(id => {
+            let g = GADGETS[id]; let lvl = currentUser.upgrades[id]; let isOwned = lvl >= 0;
+            let isEquipped = currentUser.loadout.includes(id);
+            let nextLvl = isOwned ? lvl + 1 : 0; let cost = nextLvl < 3 ? g.levels[nextLvl].cost : null;
+            let valTxt = isOwned ? (id === 'airdrop' ? (g.levels[lvl].val === 'p' ? 'Bauer' : (g.levels[lvl].val === 'n' ? 'Springer' : 'Turm')) : g.levels[lvl].val) : '-';
+            
+            let html = `<div class="shop-item ${isEquipped ? 'equipped' : ''}" style="${isEquipped ? `border-color: ${g.color}` : ''}">
+                <div class="shop-header">
+                    <b style="color:${g.color}; font-size:1.1rem;">${g.icon} ${g.name}</b> 
+                    ${isOwned ? `<span style="font-size:0.8rem; color:#aaa; background:#222; padding:2px 6px; border-radius:4px;">Lvl ${lvl+1}</span>` : `<span style="font-size:0.8rem; color:#ff0055;">Gesperrt</span>`}
+                </div>
+                <div style="font-size:0.8rem; margin-bottom:8px; color:#ccc;">${g.desc} <br>Aktuelle Kraft: <b style="color:#fff;">${valTxt}</b></div>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <label style="cursor:pointer; font-size:0.9rem; font-weight:bold;">
+                        <input type="checkbox" value="${id}" ${isEquipped ? 'checked' : ''} ${!isOwned ? 'disabled' : ''} onclick="toggleGadget(this)" style="width:16px; height:16px;"> Ausrüsten
+                    </label>
+                    ${cost !== null ? `<button class="btn-sm btn-gold" onclick="buyUpgrade('${id}')">${isOwned ? 'Upgrade' : 'Kaufen'} (${cost} 🪙)</button>` : `<span style="color:#00ff00; font-size:0.8rem; font-weight:bold;">MAX LEVEL</span>`}
+                </div>
+            </div>`;
+            $('#shop-list').append(html);
+        });
     }
 
-    // --- MULTIPLAYER P2P (PeerJS) MIT HANDSHAKE ---
-    function initHost() {
-        initAudio();
-        $('#btn-host, #btn-join').prop('disabled', true);
-        setStatus("Erstelle Serverraum...");
-        
-        let id = generateCode();
-        // Prefix "HYPER-" verhindert, dass wir aus Versehen mit fremden PeerJS-Usern kollidieren
-        peer = new Peer('HYPER-' + id, peerConfig);
-        
-        peer.on('open', () => {
-            $('#host-code').text(id); 
-            $('#menu-main').hide(); 
-            $('#menu-host').show();
+    function toggleGadget(cb) {
+        let id = cb.value;
+        if(cb.checked) {
+            if(currentUser.loadout.length >= 3) { Swal.fire('Limit!', 'Du darfst nur 3 Gadgets mitnehmen!', 'warning'); cb.checked = false; } 
+            else currentUser.loadout.push(id);
+        } else {
+            currentUser.loadout = currentUser.loadout.filter(x => x !== id);
+        }
+        saveDB(); updateMenu();
+    }
+
+    function buyUpgrade(id) {
+        let nextLvl = currentUser.upgrades[id] + 1; let cost = GADGETS[id].levels[nextLvl].cost;
+        if(currentUser.coins >= cost) {
+            currentUser.coins -= cost; currentUser.upgrades[id]++; saveDB(); updateMenu();
+            Swal.fire({title: 'Gekauft!', text: `${GADGETS[id].name} wurde verbessert!`, icon: 'success', toast: true, position: 'top-end', showConfirmButton: false, timer: 2000});
+        } else { Swal.fire('Pleite!', 'Du hast nicht genug Coins!', 'error'); }
+    }
+
+    /* --- 3. PUBLIC LOBBY (MQTT SERVERLESS) --- */
+    const mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt'); // Secure WebSockets
+    const LOBBY_TOPIC = 'hyperchess/public-rooms/v4';
+    let publicRooms = {}, hostInterval;
+
+    function initMQTT() {
+        mqttClient.on('connect', () => { mqttClient.subscribe(LOBBY_TOPIC); });
+        mqttClient.on('message', (topic, msg) => {
+            try { let data = JSON.parse(msg.toString()); 
+                  if(data.action === 'remove') delete publicRooms[data.id];
+                  else publicRooms[data.id] = { ...data, lastSeen: Date.now() }; 
+                  renderLobby(); 
+            } catch(e){}
         });
 
+        setInterval(() => {
+            let now = Date.now(), changed = false;
+            for(let id in publicRooms) { if(now - publicRooms[id].lastSeen > 10000) { delete publicRooms[id]; changed = true; } }
+            if(changed) renderLobby();
+        }, 5000);
+    }
+
+    function renderLobby() {
+        $('#lobby-list').empty(); let count = 0;
+        for(let id in publicRooms) {
+            let r = publicRooms[id]; if(r.host === currentUser.name) continue; // Zeige sich selbst nicht
+            count++;
+            $('#lobby-list').append(`
+                <div class="lobby-item" onclick="$('#join-code').val('${r.id}'); joinGame();">
+                    <div><span style="color:#00f3ff; font-weight:bold; font-size:1.1rem;">${r.host}</span> <span style="color:#aaa; font-size:0.8rem;">(${r.elo} Elo)</span><br>
+                    <span style="color:#ffaa00; font-size:0.85rem;">${r.mode} | ${r.time}</span></div>
+                    <button class="btn-sm btn-pink" style="margin:0;">JOIN</button>
+                </div>
+            `);
+        }
+        if(count === 0) $('#lobby-list').html('<p style="color:#666;">Aktuell keine Server online.</p>');
+    }
+
+    /* --- 4. MULTIPLAYER P2P (PeerJS) --- */
+    const peerConfig = { config: { 'iceServers': [{ urls: 'stun:stun.l.google.com:19302' }] } };
+    let peer, conn, myRoomId;
+    let game = new Chess(), board = null;
+    let myColor = 'w', isMyTurn = false, isFrozen = false, isGameOver = false;
+    let myTime = 60, oppTime = 60, increment = 0, timerInterval, lastTime;
+    let gameMode = 'classic', oppName = "Gegner", oppElo = 1000, myChecks = 0, oppChecks = 0;
+    let gadgetsUsed = {};
+
+    function generateCode() { return Math.random().toString(36).substring(2, 6).toUpperCase(); }
+
+    function initHost() {
+        if(currentUser.loadout.length !== 3) return Swal.fire('Halt!', 'Rüste exakt 3 Gadgets aus!', 'warning');
+        myRoomId = generateCode();
+        switchScreen('screen-host'); $('#host-code').text(myRoomId);
+        
+        peer = new Peer('HC26-' + myRoomId, peerConfig);
         peer.on('connection', (c) => {
-            conn = c; 
-            $('#host-status').text("Gegner verbindet sich...").css('color', '#00ff00');
+            conn = c; $('#host-status').text("Gegner verbindet sich...").css('color', '#00ff00');
+            clearInterval(hostInterval); mqttClient.publish(LOBBY_TOPIC, JSON.stringify({ action: 'remove', id: myRoomId }));
             setupConnectionHandlers();
         });
 
-        peer.on('error', (err) => {
-            setStatus("Netzwerk-Fehler! Lade die Seite neu.", "#ff0055");
-            $('#btn-host, #btn-join').prop('disabled', false);
-        });
+        hostInterval = setInterval(() => {
+            if ($('#public-toggle').is(':checked')) {
+                mqttClient.publish(LOBBY_TOPIC, JSON.stringify({ action: 'add', id: myRoomId, host: currentUser.name, elo: currentUser.elo, mode: $('#mode-select option:selected').text().split(' ')[1], time: $('#time-select option:selected').text() }));
+            }
+        }, 4000);
     }
 
+    function cancelHost() { if(peer) peer.destroy(); clearInterval(hostInterval); mqttClient.publish(LOBBY_TOPIC, JSON.stringify({ action: 'remove', id: myRoomId })); switchScreen('screen-menu'); }
+
     function joinGame() {
-        initAudio();
-        let id = $('#join-code').val().trim().toUpperCase();
-        if(id.length !== 4) return setStatus("Code muss genau 4 Zeichen lang sein!", "#ff0055");
+        if(currentUser.loadout.length !== 3) return Swal.fire('Halt!', 'Rüste exakt 3 Gadgets aus!', 'warning');
+        let id = $('#join-code').val().trim().toUpperCase(); if(id.length !== 4) return Swal.fire('Fehler', 'Code muss 4 Zeichen lang sein!', 'error');
         
-        $('#btn-host, #btn-join').prop('disabled', true);
-        setStatus("Suche Raum " + id + "...");
-        
+        Swal.fire({ title: 'Suche Raum...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
         peer = new Peer(peerConfig);
-        
         peer.on('open', () => {
-            conn = peer.connect('HYPER-' + id, { reliable: true });
-            
+            conn = peer.connect('HC26-' + id, { reliable: true });
             conn.on('open', () => {
-                setStatus("Verbunden! Synchronisiere...", "#00ff00");
-                setupConnectionHandlers();
-                // HANDSHAKE 1: Wir sagen dem Host, dass unsere Verbindung steht und wir empfangsbereit sind!
-                conn.send({ type: 'client_ready' }); 
+                Swal.close(); setupConnectionHandlers();
+                conn.send({ type: 'handshake', name: currentUser.name, elo: currentUser.elo });
             });
-
-            conn.on('error', () => {
-                setStatus("Verbindungsabbruch zum Host!", "#ff0055");
-                $('#btn-host, #btn-join').prop('disabled', false);
-            });
+            conn.on('error', () => { Swal.fire('Fehler', 'Verbindung fehlgeschlagen.', 'error'); });
         });
-
-        peer.on('error', (err) => {
-            setStatus("Fehler: Raum nicht gefunden oder Code falsch!", "#ff0055");
-            $('#btn-host, #btn-join').prop('disabled', false);
-        });
+        peer.on('error', () => { Swal.fire('Fehler', 'Raum nicht gefunden.', 'error'); });
     }
 
     function setupConnectionHandlers() {
         conn.on('data', (data) => {
-            
-            // HANDSHAKE 2: Host empfängt Ready vom Joiner -> Spiel kann jetzt gefahrlos und synchronisiert starten
-            if (data.type === 'client_ready') {
-                gameMode = $('#mode-select').val();
-                let tc = $('#time-select').val().split('+');
-                myTime = oppTime = parseInt(tc[0]); 
-                increment = parseInt(tc[1]);
+            if (data.type === 'handshake') {
+                oppName = data.name; oppElo = data.elo; gameMode = $('#mode-select').val();
+                let tc = $('#time-select').val().split('+'); myTime = oppTime = parseInt(tc[0]); increment = parseInt(tc[1]);
                 myColor = Math.random() > 0.5 ? 'w' : 'b';
-                
-                // Host sendet Settings an den Joiner
-                conn.send({ type: 'start', mode: gameMode, time: myTime, inc: increment, color: myColor === 'w' ? 'b' : 'w' });
+                conn.send({ type: 'start', mode: gameMode, time: myTime, inc: increment, color: myColor === 'w' ? 'b' : 'w', name: currentUser.name, elo: currentUser.elo });
                 startGame();
             } 
-            
-            // HANDSHAKE 3: Joiner empfängt Startdaten vom Host
             else if (data.type === 'start') {
-                gameMode = data.mode; myTime = oppTime = data.time; increment = data.inc; myColor = data.color;
+                oppName = data.name; oppElo = data.elo; gameMode = data.mode; myTime = oppTime = data.time; increment = data.inc; myColor = data.color;
                 startGame();
             } 
-            
-            // IM SPIEL: Schachzüge empfangen
             else if (data.type === 'move') {
-                game.move(data.move); 
-                if(data.fen) game.load(data.fen);
-                board.position(game.fen());
+                game.move(data.move); if(data.fen) game.load(data.fen); board.position(game.fen());
+                myTime = data.oppTime; oppTime = data.myTime; isMyTurn = true;
+                if(data.oppChecks !== undefined) { oppChecks = data.oppChecks; $('#opp-checks').text(oppChecks); }
                 
-                myTime = data.oppTime; oppTime = data.myTime; // Uhren exakt synchronisieren
-                isMyTurn = true;
-                
-                if(data.captured) triggerDopamine(); else playSound('move');
-                
-                if(data.kingDead) gameOver("💥 KÖNIG EXPLODIERT! GAME OVER!");
-                else checkGameOver(); 
+                if(data.captured) { dopaminEffect(); }
+                if(data.winReason) gameOver(false, false, data.winReason);
+                else if(data.kingDead) gameOver(false, false, "König eliminiert!");
+                else if(game.game_over()) gameOver(game.in_checkmate() ? false : null, game.in_draw(), game.in_checkmate() ? "Schachmatt!" : "Unentschieden!");
                 
                 updateTimers();
             } 
-            
-            // IM SPIEL: Gadgets empfangen
             else if (data.type === 'gadget') {
-                playSound('gadget');
-                if (data.gadget === 'time') {
-                    myTime -= 10; oppTime += 10; showFloatingText("-10s!", "#ff0055");
-                } else if (data.gadget === 'nuke') {
-                    game.load(data.fen); board.position(game.fen());
-                    triggerDopamine(); showFloatingText("NUKE!", "#ffaa00"); 
-                    if(data.kingDead) gameOver("💥 KÖNIG ATOMISIERT! GAME OVER!");
-                    else checkGameOver();
-                } else if (data.gadget === 'freeze') {
-                    showFloatingText("FROZEN!", "#00f3ff");
-                    isFrozen = true;
-                    $('#board-wrapper').css('pointer-events', 'none').css('filter', 'hue-rotate(180deg) grayscale(80%)');
-                    setTimeout(() => { 
-                        isFrozen = false;
-                        $('#board-wrapper').css('pointer-events', 'auto').css('filter', 'none'); 
-                    }, 3000);
-                }
+                if (data.id === 'time') { myTime -= data.val; oppTime += data.val; showFloatingText(`-${data.val}s!`, "#ff0055"); } 
+                else if (data.id === 'freeze') { showFloatingText("FROZEN!", "#00f3ff"); isFrozen = true; $('#board-wrapper').css('pointer-events', 'none').css('filter', 'grayscale(100%) blur(2px)'); setTimeout(() => { isFrozen = false; $('#board-wrapper').css('pointer-events', 'auto').css('filter', 'none'); }, data.val * 1000); } 
+                else if (data.id === 'blind') { showFloatingText("BLINDFOLD!", "#aaaaaa"); $('#board-wrapper').addClass('blindfold'); setTimeout(() => { $('#board-wrapper').removeClass('blindfold'); }, data.val * 1000); } 
+                else if (['nuke', 'promote', 'airdrop'].includes(data.id)) { if(data.fen) { game.load(data.fen); board.position(data.fen); dopaminEffect(); showFloatingText(GADGETS[data.id].name + "!", "#ff0055"); } }
+                if(data.kingDead) gameOver(false, false, "König eliminiert!");
                 updateTimers();
             }
+            else if (data.type === 'game_over') { gameOver(false, false, data.reason); }
         });
-
-        conn.on('close', () => {
-            if(!isGameOver) {
-                alert("Verbindung getrennt. Der Gegner hat das Spiel verlassen!");
-                location.reload();
-            }
-        });
+        conn.on('close', () => { if(!isGameOver) { gameOver(true, false, "Gegner hat das Spiel verlassen!"); } });
     }
 
-    // --- SPIEL LOGIK ---
+    /* --- 5. SPIEL LOGIK --- */
     function startGame() {
-        $('#menu').hide(); $('#game-ui').fadeIn();
-        isMyTurn = (myColor === 'w');
+        switchScreen('screen-game');
+        $('#my-name').text(currentUser.name); $('#my-elo').text(`(${currentUser.elo})`);
+        $('#opp-name').text(oppName); $('#opp-elo').text(`(${oppElo})`);
         
+        if(gameMode === '3check') $('#check-counter').show();
+
+        // Render In-Game Gadgets
+        $('#gadgets-container').empty(); gadgetsUsed = {};
+        currentUser.loadout.forEach(id => {
+            let g = GADGETS[id];
+            let btn = $(`<button id="btn-g-${id}" class="gadget-btn" style="border: 2px solid ${g.color}; color:${g.color};">${g.icon} ${g.name}</button>`);
+            btn.click(() => useGadget(id)); $('#gadgets-container').append(btn);
+        });
+
+        isMyTurn = (myColor === 'w');
         board = Chessboard('board', {
+            pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
             draggable: true, position: 'start', orientation: myColor === 'w' ? 'white' : 'black',
-            onDragStart: (source, piece) => {
-                if (game.game_over() || isGameOver || !isMyTurn || isFrozen) return false;
-                if (piece.search(new RegExp(`^${myColor}`)) === -1) return false;
-            },
+            onDragStart: (source, piece) => { if (game.game_over() || isGameOver || !isMyTurn || isFrozen) return false; if (piece.search(new RegExp(`^${myColor}`)) === -1) return false; },
             onDrop: handleDrop
         });
         
-        // Timeout für UI-Bugfixes auf sehr kleinen Handydisplays
-        setTimeout(() => { if(board) board.resize(); }, 200);
-        $(window).resize(() => { if(board) board.resize(); });
-        
+        setTimeout(() => { if(board) board.resize(); }, 200); $(window).resize(() => { if(board) board.resize(); });
         lastTime = Date.now(); timerInterval = setInterval(gameLoop, 100);
-        updateTimers(); playSound('gadget');
-        showFloatingText("FIGHT!", "#00f3ff");
+        updateTimers(); showFloatingText("FIGHT!", "#00f3ff");
     }
 
     function gameLoop() {
-        if (game.game_over() || isGameOver) return;
+        if (isGameOver) return;
         let now = Date.now(); let dt = (now - lastTime) / 1000; lastTime = now;
-        
-        if (isMyTurn) {
-            myTime -= dt; if (myTime <= 0) { myTime = 0; gameOver("Zeit abgelaufen! Du verlierst."); }
-        } else {
-            oppTime -= dt; if (oppTime <= 0) { oppTime = 0; gameOver("Zeit abgelaufen! Du gewinnst!"); }
-        }
+        if (isMyTurn) { myTime -= dt; if (myTime <= 0) { myTime = 0; gameOver(false, false, "Zeit abgelaufen!"); } } 
+        else { oppTime -= dt; if (oppTime <= 0) { oppTime = 0; gameOver(true, false, "Gegner Zeit abgelaufen!"); } }
         updateTimers();
     }
 
@@ -339,106 +407,107 @@
     function handleDrop(source, target) {
         if (gameMode === 'kamikaze') {
             let captures = game.moves({verbose:true}).filter(m => m.captured);
-            if (captures.length > 0 && !captures.find(m => m.from === source && m.to === target)) {
-                showFloatingText("SCHLAGZWANG!", "#ff0055");
-                return 'snapback';
-            }
+            if (captures.length > 0 && !captures.find(m => m.from === source && m.to === target)) { showFloatingText("SCHLAGZWANG!", "#ff0055"); return 'snapback'; }
         }
 
         let move = game.move({ from: source, to: target, promotion: 'q' });
         if (move === null) return 'snapback';
 
-        let captured = move.captured ? true : false;
-        let kingDead = false;
+        let captured = move.captured ? true : false, winReason = null, kingDead = false;
+
+        if (gameMode === 'firstblood' && captured) winReason = "First Blood!";
+        if (gameMode === '3check' && game.in_check()) { myChecks++; $('#my-checks').text(myChecks); showFloatingText("CHECK!", "#ff0055"); if (myChecks >= 3) winReason = "3 Checks erreicht!"; }
+        if (gameMode === 'koth' && move.piece === 'k' && ['d4','d5','e4','e5'].includes(target)) winReason = "King of the Hill!";
         
         if (gameMode === 'atomic' && captured) {
-            let fIdx = "abcdefgh".indexOf(target[0]), rIdx = parseInt(target[1]);
-            let sqs = [target];
-            for(let df = -1; df <= 1; df++) {
-                for(let dr = -1; dr <= 1; dr++) {
-                    if(df === 0 && dr === 0) continue;
-                    let f = fIdx + df, r = rIdx + dr;
-                    if(f >= 0 && f <= 7 && r >= 1 && r <= 8) {
-                        let sq = "abcdefgh"[f] + r; let p = game.get(sq);
-                        if(p && p.type !== 'p') sqs.push(sq);
-                    }
-                }
-            }
+            let fIdx = "abcdefgh".indexOf(target[0]), rIdx = parseInt(target[1]); let sqs = [target];
+            for(let df = -1; df <= 1; df++) { for(let dr = -1; dr <= 1; dr++) {
+                if(df === 0 && dr === 0) continue; let f = fIdx + df, r = rIdx + dr;
+                if(f >= 0 && f <= 7 && r >= 1 && r <= 8) { let sq = "abcdefgh"[f] + r; let p = game.get(sq); if(p && p.type !== 'p') sqs.push(sq); }
+            }}
             sqs.forEach(sq => game.remove(sq));
             if (!game.fen().includes('K') || !game.fen().includes('k')) kingDead = true;
         }
 
         myTime += increment; isMyTurn = false;
-        conn.send({ type: 'move', move: move, fen: game.fen(), myTime: myTime, oppTime: oppTime, captured: captured, kingDead: kingDead });
+        conn.send({ type: 'move', move: move, fen: game.fen(), myTime: myTime, oppTime: oppTime, captured: captured, winReason: winReason, kingDead: kingDead, oppChecks: myChecks });
         board.position(game.fen());
         
-        if (captured) triggerDopamine(); else playSound('move');
-        
-        if(kingDead) gameOver("💥 KÖNIG EXPLODIERT! GAME OVER!");
-        else checkGameOver(); 
+        if (captured) dopaminEffect();
+
+        if (winReason || kingDead) gameOver(true, false, winReason || "König atomisiert!");
+        else if (game.game_over()) gameOver(game.in_checkmate() ? true : null, game.in_draw(), game.in_checkmate() ? "Schachmatt!" : "Unentschieden!");
         
         updateTimers();
     }
 
-    function useGadget(type) {
-        if (gadgetsUsed[type] || !isMyTurn || game.game_over() || isGameOver || isFrozen) return;
-        gadgetsUsed[type] = true; $(`#btn-${type}`).prop('disabled', true);
-        playSound('gadget');
+    /* --- 6. GADGET AKTIONEN --- */
+    function useGadget(id) {
+        if (gadgetsUsed[id] || !isMyTurn || isGameOver || isFrozen) return;
+        let lvl = currentUser.upgrades[id]; let val = GADGETS[id].levels[lvl].val;
+        gadgetsUsed[id] = true; $(`#btn-g-${id}`).prop('disabled', true).css('opacity', '0.3');
         
-        if (type === 'time') {
-            myTime += 10; oppTime -= 10;
-            conn.send({ type: 'gadget', gadget: 'time' });
-            showFloatingText("+10s!", "#00ff00");
-        } else if (type === 'nuke') {
-            let targets = [];
-            for (let f of 'abcdefgh') {
-                for (let r = 1; r <= 8; r++) {
-                    let p = game.get(f+r);
-                    if (p && p.color !== myColor && p.type !== 'k') targets.push(f+r);
-                }
-            }
-            if (targets.length > 0) {
-                game.remove(targets[Math.floor(Math.random() * targets.length)]);
-                board.position(game.fen());
-                let kingDead = (!game.fen().includes('K') || !game.fen().includes('k'));
-                conn.send({ type: 'gadget', gadget: 'nuke', fen: game.fen(), kingDead: kingDead });
-                triggerDopamine(); showFloatingText("NUKE!", "#ffaa00"); 
-                
-                if(kingDead) gameOver("💥 KÖNIG ATOMISIERT! GAME OVER!");
-                else checkGameOver();
-            }
-        } else if (type === 'freeze') {
-            conn.send({ type: 'gadget', gadget: 'freeze' });
-            showFloatingText("FREEZE gesendet!", "#00f3ff");
+        let payload = { type: 'gadget', id: id, val: val };
+        
+        if (id === 'time') { myTime += val; oppTime = Math.max(0, oppTime - val); showFloatingText(`+${val}s!`, "#00ff00"); } 
+        else if (id === 'freeze') { showFloatingText("FREEZE gesendet!", "#00f3ff"); } 
+        else if (id === 'blind') { showFloatingText("BLINDFOLD!", "#aaaaaa"); } 
+        else if (id === 'nuke') {
+            let targets = []; for (let f of 'abcdefgh') for (let r = 1; r <= 8; r++) { let p = game.get(f+r); if (p && p.color !== myColor && p.type !== 'k') targets.push(f+r); }
+            for(let i=0; i<val; i++) { if (targets.length > 0) { let rIdx = Math.floor(Math.random() * targets.length); game.remove(targets[rIdx]); targets.splice(rIdx, 1); } }
+            payload.fen = game.fen(); board.position(game.fen()); dopaminEffect(); showFloatingText("NUKE!", "#ff0055");
+        } 
+        else if (id === 'promote') {
+            let targets = []; for (let f of 'abcdefgh') for (let r = 1; r <= 8; r++) { let p = game.get(f+r); if (p && p.color === myColor && p.type === 'p') targets.push(f+r); }
+            for(let i=0; i<val; i++) { if (targets.length > 0) { let rIdx = Math.floor(Math.random() * targets.length); game.put({type: 'q', color: myColor}, targets[rIdx]); targets.splice(rIdx, 1); } }
+            payload.fen = game.fen(); board.position(game.fen()); dopaminEffect(); showFloatingText("PROMOTE!", "#ff00ff");
+        } 
+        else if (id === 'airdrop') {
+            let empty = []; for (let f of 'abcdefgh') for (let r = 2; r <= 7; r++) { if (!game.get(f+r)) empty.push(f+r); }
+            if (empty.length > 0) { let rIdx = Math.floor(Math.random() * empty.length); game.put({type: val, color: myColor}, empty[rIdx]); }
+            payload.fen = game.fen(); board.position(game.fen()); dopaminEffect(); showFloatingText("AIRDROP!", "#ffff00");
         }
-        updateTimers();
+
+        let kingDead = (!game.fen().includes('K') || !game.fen().includes('k'));
+        if(kingDead) payload.kingDead = true;
+
+        conn.send(payload); updateTimers();
+        if(kingDead) { conn.send({type: 'game_over', reason: 'König eliminiert!'}); gameOver(true, false, "König eliminiert!"); }
     }
 
-    function triggerDopamine() {
-        playSound('capture');
-        $('#board-wrapper').removeClass('shake');
-        void document.getElementById('board-wrapper').offsetWidth;
-        $('#board-wrapper').addClass('shake');
-        confetti({ particleCount: 200, spread: 360, startVelocity: 40, colors: ['#ff0055', '#00f3ff', '#ffaa00', '#ffffff'], zIndex: 1000 });
+    /* --- 7. ENDGAME & EFFEKTE --- */
+    function dopaminEffect() {
+        $('#board-wrapper').removeClass('shake'); void document.getElementById('board-wrapper').offsetWidth; $('#board-wrapper').addClass('shake');
+        confetti({ particleCount: 150, spread: 360, startVelocity: 40, colors: ['#ff0055', '#00f3ff', '#ffaa00', '#ffffff'], zIndex: 10000 });
     }
-
+    
     function showFloatingText(text, color) {
-        let el = $('<div class="floating-text"></div>').text(text).css('color', color);
-        let b = $('#board-wrapper');
+        let el = $('<div class="floating-text"></div>').text(text).css('color', color); let b = $('#board-wrapper');
         el.css({ left: b.offset().left + b.width() / 2 - 80, top: b.offset().top + b.height() / 2 - 20 });
-        $('body').append(el);
-        setTimeout(() => el.remove(), 1000);
+        $('body').append(el); setTimeout(() => el.remove(), 1000);
     }
 
-    function checkGameOver() {
-        if (game.game_over()) gameOver(game.in_checkmate() ? "Schachmatt!" : "Unentschieden!");
-    }
+    function gameOver(won, isDraw, reason) {
+        if(isGameOver) return; isGameOver = true; clearInterval(timerInterval);
+        
+        let eloChange = 0, coinsGained = 0;
+        if(!isDraw) {
+            let expected = 1 / (1 + Math.pow(10, (oppElo - currentUser.elo) / 400));
+            eloChange = Math.round(32 * ((won ? 1 : 0) - expected));
+            coinsGained = won ? 30 : 5;
+        } else { coinsGained = 10; }
+        
+        currentUser.elo = Math.max(0, currentUser.elo + eloChange); currentUser.coins += coinsGained; saveDB();
+        
+        if(won) confetti({ particleCount: 400, spread: 360, startVelocity: 60, zIndex: 99999 });
 
-    function gameOver(msg) {
-        if(isGameOver) return;
-        isGameOver = true;
-        clearInterval(timerInterval);
-        setTimeout(() => { alert(msg); location.reload(); }, 500);
+        setTimeout(() => {
+            Swal.fire({
+                title: won ? 'GEWONNEN! 🎉' : (isDraw ? 'UNENTSCHIEDEN 🤝' : 'VERLOREN 💀'),
+                html: `<b>${reason}</b><br><br><span style="color:#00f3ff; font-size:1.5rem; font-weight:bold;">Elo: ${currentUser.elo} (${eloChange >= 0 ? '+'+eloChange : eloChange})</span><br><span style="color:#ffaa00; font-size:1.2rem; font-weight:bold;">Coins: +${coinsGained}</span>`,
+                background: '#1a1a24', color: '#fff', confirmButtonColor: '#ff0055', allowOutsideClick: false
+            }).then(() => location.reload());
+        }, 800);
     }
 </script>
 </body>
